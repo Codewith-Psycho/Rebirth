@@ -229,7 +229,7 @@ export function MicroStepsDialog({
                   <span className="tabular-nums">{progress.skipped} skipped</span>
                 ) : null}
               </div>
-              <Progress value={progress.percent} aria-label="Steps dealt with" />
+              <Progress value={progress.percent} label="Steps dealt with" />
             </div>
 
             {resolvedAll ? (

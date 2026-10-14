@@ -36,7 +36,8 @@ import {
   type ItemFilter,
 } from '@/lib/domain/calendar';
 import { daysInRange, rangeLabel, shiftAnchor } from '@/lib/domain/calendar-range';
-import { intervalsForSessions, overlaps } from '@/lib/domain/intervals';
+import { intervalsForSessions } from '@/lib/domain/intervals';
+import { overlaps } from '@/lib/domain/scheduling';
 import {
   instantToLocalMinutes,
   minutesToTimeString,

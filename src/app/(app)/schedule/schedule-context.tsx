@@ -11,7 +11,6 @@ import {
 import { toast } from 'sonner';
 
 import { loadScheduleFacts, type ScheduleFacts } from '@/lib/data/schedule';
-import type { Result } from '@/lib/data/result';
 import { todayInZone, type DayKey } from '@/lib/domain/time';
 import { useRealtime } from '@/lib/hooks/use-realtime';
 import { useServerClock } from '@/lib/hooks/use-server-clock';
@@ -104,7 +103,9 @@ export function ScheduleProvider({
 
   const mutate = useCallback<Mutator>(
     async (action, options = {}) => {
-      let result: Result<unknown>;
+      // Derived from `action` so the caller's generic flows through. Annotating
+      // this as `Result<unknown>` erased `T` and broke the `Mutator` contract.
+      let result: Awaited<ReturnType<typeof action>>;
       try {
         result = await action();
       } catch (thrown) {

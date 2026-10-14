@@ -139,7 +139,9 @@ export function TodayProvider({
 
   const mutate = useCallback<TodayApi['mutate']>(
     async (action, options = {}) => {
-      let result: Result<unknown>;
+      // Derived from `action` so the caller's generic flows through. Annotating
+      // this as `Result<unknown>` erased `T` and broke the `Mutator` contract.
+      let result: Awaited<ReturnType<typeof action>>;
       try {
         result = await action();
       } catch (thrown) {

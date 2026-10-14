@@ -248,7 +248,12 @@ function stableIndex(seed: string, length: number): number {
   return hashString(seed) % length;
 }
 
-function pick<T>(options: T[], seed: string, _salt: string): T {
+/*
+ * `salt` is accepted for symmetry with call sites that name their message
+ * family, but selection is driven entirely by `seed` — callers that care fold
+ * the salt into the seed themselves (e.g. `${seed}:milestone`).
+ */
+function pick<T>(options: T[], seed: string, _salt?: string): T {
   return options[stableIndex(seed, options.length)] ?? options[0]!;
 }
 

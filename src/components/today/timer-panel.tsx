@@ -379,7 +379,7 @@ function RunningTimer({
       {snapshot.progress !== null ? (
         <Progress
           value={snapshot.progress * 100}
-          aria-label={
+          label={
             isTwoMinute ? 'Progress through the two-minute start' : 'Progress toward the target length'
           }
         />

@@ -113,7 +113,7 @@ export function ItemBlock({
     <button
       type="button"
       onClick={() => onClick?.(item)}
-      aria-label={describeItem(item, trackedMinutes)}
+      aria-label={describeItem(item, trackedMinutes ?? null)}
       className={cn(
         'flex h-full w-full flex-col gap-0.5 overflow-hidden rounded-md border px-2 py-1 text-left transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',

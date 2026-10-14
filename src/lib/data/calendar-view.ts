@@ -6,9 +6,10 @@ import { loadCalendarWindow } from './calendar';
 import type { Goal } from './goals';
 import { goalTitleMap, listGoals } from './goals';
 import { ok, type Result } from './result';
-import type { ScheduledTask, TaskSession } from './tasks';
+import type { ScheduledTask, TaskSession, TaskSessionPause } from './tasks';
 import {
   ensureRecurringInstances,
+  listSessionPauses,
   listSessionsInRange,
   listTasksInRange,
 } from './tasks';
@@ -39,6 +40,8 @@ export interface CalendarFacts {
   periods: ImportantPeriod[];
   tasks: ScheduledTask[];
   sessions: TaskSession[];
+  /** Pause intervals for the sessions above, so tracked time excludes paused spans. */
+  pauses: TaskSessionPause[];
   goals: Goal[];
   goalTitles: Map<string, string>;
 }
@@ -85,6 +88,14 @@ export async function loadCalendarFacts(
   const goals = goalsResult.data;
   const goalTitles = goalTitleMap(goals);
 
+  // The same pause rows Today reads, so a session's tracked time means the same
+  // thing on both screens.
+  const pausesResult = await listSessionPauses(
+    db,
+    sessionsResult.data.map((session) => session.id),
+  );
+  if (!pausesResult.ok) return pausesResult;
+
   const windowResult: Result<CalendarWindow> = await loadCalendarWindow(db, {
     from,
     to,
@@ -121,6 +132,7 @@ export async function loadCalendarFacts(
     periods: windowResult.data.periods,
     tasks,
     sessions: sessionsResult.data,
+    pauses: pausesResult.data,
     goals,
     goalTitles,
   });

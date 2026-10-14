@@ -13,7 +13,6 @@ import {
 import { toast } from 'sonner';
 
 import { loadCalendarFacts, type CalendarFacts } from '@/lib/data/calendar-view';
-import type { Result } from '@/lib/data/result';
 import {
   rangeFor,
   type CalendarRange,
@@ -152,7 +151,9 @@ export function CalendarProvider({
 
   const mutate = useCallback<Mutator>(
     async (action, options = {}) => {
-      let result: Result<unknown>;
+      // Derived from `action` so the caller's generic flows through. Annotating
+      // this as `Result<unknown>` erased `T` and broke the `Mutator` contract.
+      let result: Awaited<ReturnType<typeof action>>;
       try {
         result = await action();
       } catch (thrown) {

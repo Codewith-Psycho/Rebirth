@@ -251,7 +251,7 @@ export function CalendarToolbar({
                   <FilterRow
                     key={status}
                     id={`filter-status-${status}`}
-                    label={TASK_STATUS_META[status].label}
+                    label={TASK_STATUS_META[status]?.label ?? status}
                     checked={filter.statuses.includes(status)}
                     onChange={() => toggle('statuses', status)}
                   />

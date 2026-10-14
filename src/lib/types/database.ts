@@ -361,6 +361,28 @@ export interface CalendarEventRow {
   updated_at: string;
 }
 
+export interface ImportantEventRow {
+  id: string;
+  user_id: string;
+  title: string;
+  kind: EventKind;
+  starts_on: string;
+  ends_on: string | null;
+  /**
+   * Per-event overrides. `NULL` on the two caps below means "inherit from
+   * `user_preferences`", which is why they are treated as omittable rather
+   * than genuinely absent.
+   */
+  pressure_mode_enabled: boolean;
+  pressure_lead_days: number;
+  deep_work_cap_minutes: number | null;
+  minimum_sleep_minutes: number | null;
+  recovery_days: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /* ── Insert / update helpers ────────────────────────────────────────────── */
 
 /** Promotes the listed database-generated columns to optional. */
@@ -543,6 +565,18 @@ export interface Database {
         | 'weekdays'
         | 'parent_event_id'
         | 'occurrence_date'
+      >;
+      important_events: TableDefinition<
+        ImportantEventRow,
+        | 'id'
+        | 'kind'
+        | 'pressure_mode_enabled'
+        | 'pressure_lead_days'
+        | 'deep_work_cap_minutes'
+        | 'minimum_sleep_minutes'
+        | 'recovery_days'
+        | 'created_at'
+        | 'updated_at'
       >;
     };
     Views: {

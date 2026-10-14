@@ -170,28 +170,37 @@ export type PreferencesValues = z.infer<typeof preferencesSchema>;
 
 /* ── Tasks ──────────────────────────────────────────────────────────────── */
 
-export const taskSchema = z
-  .object({
-    title: trimmed(1, 160, 'A title'),
-    description: z.string().max(2000).optional().nullable().or(z.literal('')),
-    category: categorySchema,
-    priority: prioritySchema,
-    scheduled_date: dayKeySchema,
-    start_time: timeSchema,
-    duration_minutes: z.coerce.number().int().min(5, 'At least 5 minutes').max(1440),
-    goal_id: nullableUuid,
-    reward_id: nullableUuid,
-    reminder_minutes: z
-      .union([z.coerce.number().int().min(0).max(1440), z.literal(''), z.null()])
-      .transform((v) => (v === '' || v === null ? null : v))
-      .nullable(),
-    checklist: z.array(z.string().trim().min(1).max(120)).max(12).default([]),
-    notes: z.string().max(2000).optional().nullable().or(z.literal('')),
-  })
-  .refine((v) => v.duration_minutes <= 1440, { path: ['duration_minutes'], message: 'That is longer than a day' });
+/*
+ * The task field shape on its own, before any cross-field rule. Zod 3 returns a
+ * `ZodEffects` from `.refine()`, and a `ZodEffects` has neither `.extend()` nor
+ * `.partial()` — so the object has to stay unrefined for the routine and edit
+ * schemas to build on it.
+ */
+const taskFields = z.object({
+  title: trimmed(1, 160, 'A title'),
+  description: z.string().max(2000).optional().nullable().or(z.literal('')),
+  category: categorySchema,
+  priority: prioritySchema,
+  scheduled_date: dayKeySchema,
+  start_time: timeSchema,
+  duration_minutes: z.coerce.number().int().min(5, 'At least 5 minutes').max(1440),
+  goal_id: nullableUuid,
+  reward_id: nullableUuid,
+  reminder_minutes: z
+    .union([z.coerce.number().int().min(0).max(1440), z.literal(''), z.null()])
+    .transform((v) => (v === '' || v === null ? null : v))
+    .nullable(),
+  checklist: z.array(z.string().trim().min(1).max(120)).max(12).default([]),
+  notes: z.string().max(2000).optional().nullable().or(z.literal('')),
+});
+
+export const taskSchema = taskFields.refine(
+  (v) => v.duration_minutes <= 1440,
+  { path: ['duration_minutes'], message: 'That is longer than a day' },
+);
 export type TaskValues = z.infer<typeof taskSchema>;
 
-export const routineSchema = taskSchema.extend({
+export const routineSchema = taskFields.extend({
   recurrence: recurrenceSchema,
   weekdays: z.array(z.coerce.number().int().min(0).max(6)).max(7).default([]),
   starts_on: dayKeySchema,
@@ -202,6 +211,10 @@ export const routineSchema = taskSchema.extend({
 });
 
 export const routineSchemaRefined = routineSchema
+  .refine((v) => v.duration_minutes <= 1440, {
+    path: ['duration_minutes'],
+    message: 'That is longer than a day',
+  })
   .refine((v) => v.recurrence !== 'none' || true, { path: ['recurrence'], message: 'Unreachable' })
   .refine((v) => v.recurrence !== 'custom_weekly' || v.weekdays.length > 0, {
     path: ['weekdays'],
@@ -224,7 +237,7 @@ export type RescheduleValues = z.infer<typeof rescheduleSchema>;
 export const editScopeSchema = z.object({
   task_id: uuidSchema,
   scope: scopeSchema,
-  values: taskSchema.partial(),
+  values: taskFields.partial(),
 });
 
 export const cancelSchema = z.object({
