@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   REBIRTH — design tokens
+   Old money × modern futuristic productivity.
+   Values are HSL triplets consumed by tailwind.config.ts.
+   Contrast has been verified against WCAG AA for text pairings; where the
+   brief's approximate hex would have failed AA for small text (e.g. the warm
+   grey secondary text), the token was nudged darker and the adjustment is
+   documented inline.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 44 38% 94%; /* ≈ #F6F3EB  warm ivory */
+    --foreground: 90 5% 16%; /* ≈ #292B27  rich charcoal */
+    --surface: 45 100% 99%; /* ≈ #FFFEFA  soft cream */
+    --surface-foreground: 90 5% 16%;
+    --card: 45 100% 99%;
+    --card-foreground: 90 5% 16%;
+    --popover: 45 100% 99%;
+    --popover-foreground: 90 5% 16%;
+
+    /* Brand */
+    --primary: 155 27% 19%; /* ≈ #233D32  deep forest green */
+    --primary-foreground: 44 38% 96%;
+    --primary-soft: 155 20% 92%;
+    --secondary: 104 10% 56%; /* ≈ #899A83  muted sage */
+    --secondary-foreground: 155 27% 16%;
+    --accent: 41 35% 55%; /* ≈ #B49A62  antique gold */
+    --accent-foreground: 90 5% 16%;
+    --gold: 41 35% 55%;
+    --gold-ink: 43 38% 36%; /* darker gold for AA-safe text on ivory */
+    --muted: 42 26% 91%;
+    --muted-foreground: 53 4% 42%; /* ≈ #6E6D66 (darkened from #77766F for AA) */
+    --border: 41 27% 86%; /* ≈ #E5DFD2  soft beige */
+    --input: 41 27% 82%;
+    --ring: 155 27% 30%;
+    --grid: 41 24% 88%;
+    --shadow-color: 90 12% 20%;
+
+    /* Status — muted, never alarming */
+    --destructive: 8 51% 36%;
+    --destructive-foreground: 44 38% 97%;
+    --destructive-soft: 8 45% 94%;
+    --success: 146 26% 33%;
+    --success-foreground: 44 38% 97%;
+    --success-soft: 146 22% 92%;
+    --warning: 40 60% 38%;
+    --warning-foreground: 44 38% 97%;
+    --warning-soft: 40 55% 93%;
+    --info: 205 30% 38%;
+    --info-foreground: 44 38% 97%;
+    --info-soft: 205 30% 94%;
+
+    /* Categorical series — distinguishable, all mid-tone so they read
+       equally well on ivory. Never the sole carrier of meaning: every chart
+       also labels its series. */
+    --chart-1: 158 27% 25%; /* forest */
+    --chart-2: 112 9% 52%; /* sage */
+    --chart-3: 41 34% 49%; /* antique gold */
+    --chart-4: 14 30% 52%; /* terracotta */
+    --chart-5: 205 19% 46%; /* dusty blue */
+    --chart-6: 287 10% 45%; /* plum */
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 140 6% 10%; /* ≈ #171A18  deep charcoal */
+    --foreground: 40 32% 91%; /* ≈ #EFEAE0  warm ivory */
+    --surface: 120 7% 14%; /* ≈ #202520  dark olive-charcoal */
+    --surface-foreground: 40 32% 91%;
+    --card: 120 7% 14%;
+    --card-foreground: 40 32% 91%;
+    --popover: 120 8% 16%;
+    --popover-foreground: 40 32% 91%;
+
+    --primary: 146 19% 52%; /* muted forest green, legible on charcoal */
+    --primary-foreground: 140 10% 10%;
+    --primary-soft: 146 15% 20%;
+    --secondary: 104 12% 40%;
+    --secondary-foreground: 40 32% 91%;
+    --accent: 42 50% 69%; /* champagne gold */
+    --accent-foreground: 140 10% 10%;
+    --gold: 42 50% 69%;
+    --gold-ink: 42 50% 69%;
+    --muted: 120 6% 18%;
+    --muted-foreground: 55 7% 61%;
+    --border: 120 5% 24%; /* subdued olive-grey */
+    --input: 120 5% 28%;
+    --ring: 146 30% 60%;
+    --grid: 120 5% 20%;
+    --shadow-color: 0 0% 0%;
+
+    --destructive: 9 47% 59%;
+    --destructive-foreground: 140 10% 10%;
+    --destructive-soft: 9 30% 20%;
+    --success: 141 29% 61%;
+    --success-foreground: 140 10% 10%;
+    --success-soft: 141 20% 18%;
+    --warning: 39 59% 63%;
+    --warning-foreground: 140 10% 10%;
+    --warning-soft: 39 30% 19%;
+    --info: 205 40% 66%;
+    --info-foreground: 140 10% 10%;
+    --info-soft: 205 25% 19%;
+
+    --chart-1: 150 22% 58%;
+    --chart-2: 112 14% 62%;
+    --chart-3: 42 46% 64%;
+    --chart-4: 14 40% 64%;
+    --chart-5: 205 30% 62%;
+    --chart-6: 287 18% 66%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  /* Visible, calm focus states — never removed, only styled. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring/60 ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    background-color: hsl(var(--accent) / 0.35);
+    color: hsl(var(--foreground));
+  }
+
+  /* Numerals in timers, durations and statistics must never jitter. */
+  .tabular,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif tracking-tight;
+  }
+
+  /* Honour the user's motion preference everywhere. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* A hairline rule used to separate editorial blocks — the "private study"
+     motif. Gold-tinted and very low contrast by design. */
+  .rule-gold {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-accent/40 to-transparent;
+  }
+
+  .card-surface {
+    @apply rounded-lg border border-border bg-card shadow-subtle;
+  }
+
+  /* Task status is communicated by shape + label as well as colour. */
+  .status-dot {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* Screen-reader-only helper for live regions (timer announcements). */
+  .sr-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Refined scrollbars — thin, warm, unobtrusive. */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    border: 3px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--secondary) / 0.7);
+  }
+}
