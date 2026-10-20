@@ -123,7 +123,7 @@ export function completionMessage(facts: CompletionFacts): CompletionMessage {
   const candidates: Array<{ tone: CompletionMessage['tone']; body: string }> = [];
 
   if (facts.isFirstEverCompletion) {
-    candidates.push({ tone: 'progress', body: pick(FIRST_EVER_LINES, facts.seed, 'first') });
+    candidates.push({ tone: 'progress', body: pick(FIRST_EVER_LINES, facts.seed) });
   }
 
   if (facts.goalTitle) {
@@ -141,7 +141,7 @@ export function completionMessage(facts: CompletionFacts): CompletionMessage {
     }
     candidates.push({ tone: 'goal', body: pick(GOAL_LINES, `${facts.seed}:goal`)(facts) });
   } else {
-    candidates.push({ tone: 'effort', body: pick(EFFORT_LINES, `${facts.seed}:effort`, 'text') });
+    candidates.push({ tone: 'effort', body: pick(EFFORT_LINES, `${facts.seed}:effort`) });
   }
 
   if (facts.startDeltaVsLastWeek !== null && facts.startDeltaVsLastWeek <= -5) {
@@ -166,7 +166,7 @@ export function completionMessage(facts: CompletionFacts): CompletionMessage {
   }
 
   if (candidates.length === 0) {
-    candidates.push({ tone: 'effort', body: pick(EFFORT_LINES, `${facts.seed}:effort`, 'text') });
+    candidates.push({ tone: 'effort', body: pick(EFFORT_LINES, `${facts.seed}:effort`) });
   }
 
   const chosen = candidates[stableIndex(facts.seed, candidates.length)] ?? candidates[0]!;
@@ -249,11 +249,11 @@ function stableIndex(seed: string, length: number): number {
 }
 
 /*
- * `salt` is accepted for symmetry with call sites that name their message
- * family, but selection is driven entirely by `seed` — callers that care fold
- * the salt into the seed themselves (e.g. `${seed}:milestone`).
+ * Selection is driven entirely by `seed`. A call site that needs a different
+ * line for a different family folds the family into the seed itself
+ * (e.g. `${seed}:milestone`).
  */
-function pick<T>(options: T[], seed: string, _salt?: string): T {
+function pick<T>(options: T[], seed: string): T {
   return options[stableIndex(seed, options.length)] ?? options[0]!;
 }
 

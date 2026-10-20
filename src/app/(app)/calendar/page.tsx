@@ -13,9 +13,9 @@ import { CalendarProvider } from './calendar-context';
  * The calendar, rendered on the server for the first paint.
  *
  * The window loaded here is the same window the provider re-loads after a
- * write, produced by the same function, so paging into a new month and landing
+ * write, produced by the same function, so paging into a new week and landing
  * on it directly show identical data. A failed load is shown as a failure rather
- * than as an empty month: "nothing is planned" and "the plan could not be read"
+ * than as an empty week: "nothing is planned" and "the plan could not be read"
  * are different statements and only one of them is true.
  */
 
@@ -44,7 +44,7 @@ export default async function CalendarPage() {
   const db = await requireServerClient();
   const now = new Date();
   const today = todayInZone(viewer.timeZone, now);
-  const range = rangeFor('month', today, viewer.preferences.week_starts_on);
+  const range = rangeFor('week', today, viewer.preferences.week_starts_on);
 
   const result = await loadCalendarFacts(db, {
     from: range.from,

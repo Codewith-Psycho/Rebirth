@@ -392,6 +392,17 @@ export function futureDays(from: DayKey, to: DayKey, asOf: DayKey): number {
   return diffInDays(to, asOf);
 }
 
+/**
+ * Whether "this one and all that follow" may target `target`.
+ *
+ * The continuation half of a routine is forward-only: moving it into the past
+ * would split the series behind days the user has already lived — the case the
+ * scheduling RPC refuses. A single occurrence has no such restriction.
+ */
+export function futureMoveTargetAllowed(target: DayKey, today: DayKey): boolean {
+  return diffInDays(target, today) >= 0;
+}
+
 /** Next occurrence of a weekday at or after `from`. */
 export function nextWeekday(from: DayKey, weekday: number): DayKey {
   let cursor = from;

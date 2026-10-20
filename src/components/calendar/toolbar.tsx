@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, ListFilter, Plus, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListFilter, Search, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -12,13 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { SyncBadge } from '@/components/common/states';
 import type { Goal } from '@/lib/data/goals';
 import {
+  CALENDAR_STATUS_LABELS,
   EMPTY_FILTER,
   isFilterActive,
+  type CalendarItemStatus,
   type ItemFilter,
 } from '@/lib/domain/calendar';
 import { CALENDAR_VIEWS, VIEW_LABELS, type CalendarView } from '@/lib/domain/calendar-range';
-import { CATEGORY_META, CATEGORY_ORDER, TASK_STATUS_META } from '@/lib/domain/vocabulary';
-import type { CalendarItemStatus } from '@/lib/domain/calendar';
+import { CATEGORY_META, CATEGORY_ORDER } from '@/lib/domain/vocabulary';
 import type { CategoryKind, TaskPriority } from '@/lib/types/database';
 import { cn } from '@/lib/utils';
 
@@ -48,7 +49,6 @@ const PRIORITY_ORDER: Array<{ value: TaskPriority; label: string }> = [
 export interface CalendarToolbarProps {
   view: CalendarView;
   onViewChange: (view: CalendarView) => void;
-  label: string;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -58,13 +58,11 @@ export interface CalendarToolbarProps {
   goals: Goal[];
   sync: 'idle' | 'connecting' | 'live' | 'unavailable';
   loading: boolean;
-  onQuickAdd: () => void;
 }
 
 export function CalendarToolbar({
   view,
   onViewChange,
-  label,
   onPrev,
   onNext,
   onToday,
@@ -74,7 +72,6 @@ export function CalendarToolbar({
   goals,
   sync,
   loading,
-  onQuickAdd,
 }: CalendarToolbarProps) {
   const active = isFilterActive(filter);
 
@@ -158,22 +155,13 @@ export function CalendarToolbar({
           </Button>
         </div>
 
-        <p aria-live="polite" className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          {label}
-        </p>
-
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <SyncBadge status={sync} />
           {loading ? (
             <span className="text-2xs text-muted-foreground" role="status">
               Loading…
             </span>
           ) : null}
-          <Button size="sm" onClick={onQuickAdd}>
-            <Plus className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Add</span>
-            <span className="sr-only sm:hidden">Add something</span>
-          </Button>
         </div>
       </div>
 
@@ -251,7 +239,7 @@ export function CalendarToolbar({
                   <FilterRow
                     key={status}
                     id={`filter-status-${status}`}
-                    label={TASK_STATUS_META[status]?.label ?? status}
+                    label={CALENDAR_STATUS_LABELS[status] ?? status}
                     checked={filter.statuses.includes(status)}
                     onChange={() => toggle('statuses', status)}
                   />

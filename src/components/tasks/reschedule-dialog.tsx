@@ -16,8 +16,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { rescheduleTask, type EditScope, type ScheduledTask } from '@/lib/data/tasks';
-import { addDaysToKey, endTimeString, humanDay, longDay, type DayKey } from '@/lib/domain/time';
-import { useSupabase } from '@/lib/hooks/use-viewer';
+import { futureMoveTargetAllowed } from '@/lib/domain/scheduling';
+import {
+  addDaysToKey,
+  endTimeString,
+  humanDay,
+  longDay,
+  todayInZone,
+  type DayKey,
+} from '@/lib/domain/time';
+import { useSupabase, useViewer } from '@/lib/hooks/use-viewer';
 import { cn } from '@/lib/utils';
 import type { Mutator } from './types';
 
@@ -32,6 +40,11 @@ import type { Mutator } from './types';
  *
  * Completion history is untouched by any of the three scopes — the stored
  * occurrence keeps its own record and the move is written as a new position.
+ *
+ * "This one and all that follow" is forward-only: the continuation may not be
+ * moved before the user's local today. A single occurrence may move in either
+ * direction. The rule is re-checked by `rpc_update_recurring_task`, because
+ * both RPCs are directly callable.
  */
 
 export interface RescheduleDialogProps {
@@ -56,12 +69,22 @@ export function RescheduleDialog({
   loadByDay,
 }: RescheduleDialogProps) {
   const supabase = useSupabase();
+  const viewer = useViewer();
   const [target, setTarget] = useState<DayKey>(day);
   const [time, setTime] = useState('09:00');
   const [scope, setScope] = useState<EditScope>('occurrence');
   const [busy, setBusy] = useState(false);
 
   const recurring = task?.template_id !== null && task?.template_id !== undefined;
+
+  // The rule is defined on the user's local day, not on the day the dialog was
+  // opened from: the calendar can be showing another week entirely. The zone
+  // must be the one the RPC reads — `user_preferences.timezone`, carried on the
+  // viewer as `preferences` — not `viewer.timeZone`, which mirrors the profile
+  // column and is not kept in step with the preference.
+  const today = todayInZone(effectiveTimeZone(viewer.preferences?.timezone));
+  const futureMoveInPast =
+    recurring && scope === 'future' && !futureMoveTargetAllowed(target, today);
 
   useEffect(() => {
     if (!open || !task) return;
@@ -80,7 +103,7 @@ export function RescheduleDialog({
   );
 
   async function submit() {
-    if (!task) return;
+    if (!task || futureMoveInPast) return;
     setBusy(true);
     const changedTime = time !== task.start_time.slice(0, 5);
     const result = await mutate(
@@ -123,7 +146,7 @@ export function RescheduleDialog({
 
         <div className="space-y-5">
           <div className="space-y-2">
-            <Label>New day</Label>
+            <Label htmlFor="reschedule-target">New day</Label>
             <div className="flex flex-wrap gap-2">
               {quickTargets.map((option) => (
                 <Button
@@ -139,10 +162,14 @@ export function RescheduleDialog({
               ))}
             </div>
             <Input
+              id="reschedule-target"
               type="date"
               value={target}
               onChange={(event) => setTarget(event.target.value as DayKey)}
+              min={scope === 'future' ? today : undefined}
               aria-label="New date"
+              aria-invalid={futureMoveInPast || undefined}
+              aria-describedby={futureMoveInPast ? 'reschedule-target-error' : undefined}
             />
             <p className="text-xs text-muted-foreground">
               {longDay(target)}
@@ -152,6 +179,16 @@ export function RescheduleDialog({
                   : ` — ${targetLoad} other ${targetLoad === 1 ? 'task' : 'tasks'} already planned.`
                 : ''}
             </p>
+            {futureMoveInPast ? (
+              <p
+                id="reschedule-target-error"
+                role="alert"
+                className="text-xs font-medium text-destructive"
+              >
+                “This one and all that follow” can only move to today or a later day. Choose
+                “Only this one” to move this occurrence earlier.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -191,14 +228,12 @@ export function RescheduleDialog({
                   value="future"
                   current={scope}
                   label="This one and all that follow"
-                  explanation="Future occurrences move too. Days already completed keep their own record."
+                  explanation="Future occurrences move too. The new day can be today or later. Days already completed keep their own record."
                 />
-                <ScopeOption
-                  value="series"
-                  current={scope}
-                  label="Every occurrence, past and future"
-                  explanation="The routine itself changes. What you already recorded is never rewritten."
-                />
+                {/* A series-wide move is not offered: the RPC applies the new
+                    time to the routine but never shifts its slot dates, so the
+                    option would promise a move it cannot make. Series-wide
+                    title, time and delete changes stay in Edit / Delete. */}
               </RadioGroup>
             </fieldset>
           ) : null}
@@ -217,7 +252,7 @@ export function RescheduleDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => void submit()} loading={busy} disabled={!task}>
+          <Button onClick={() => void submit()} loading={busy} disabled={!task || futureMoveInPast}>
             Move it
           </Button>
         </DialogFooter>
@@ -251,4 +286,19 @@ function ScopeOption({
       </div>
     </div>
   );
+}
+
+/**
+ * The zone the scheduling RPC will treat as the user's, with the same fallback
+ * it applies: a missing, blank or unrecognised IANA name means UTC.
+ */
+function effectiveTimeZone(value: string | null | undefined): string {
+  const zone = value?.trim();
+  if (!zone) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: zone });
+    return zone;
+  } catch {
+    return 'UTC';
+  }
 }

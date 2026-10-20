@@ -88,7 +88,9 @@ export function CalendarProvider({
   const viewer = useViewer();
   const weekStartsOn = viewer.preferences.week_starts_on;
 
-  const [view, setViewState] = useState<CalendarView>('month');
+  // Week is the default: a month is too coarse to act on, and a single day
+  // hides the context that makes planning a week possible.
+  const [view, setViewState] = useState<CalendarView>('week');
   const [anchor, setAnchorState] = useState<DayKey>(initialAnchor);
   const [facts, setFacts] = useState<CalendarFacts>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function CalendarProvider({
   const range = useMemo(() => rangeFor(view, anchor, weekStartsOn), [view, anchor, weekStartsOn]);
   const rangeKey = `${range.from}:${range.to}`;
   const loadedRangeKey = useRef(
-    `${rangeFor('month', initialAnchor, weekStartsOn).from}:${rangeFor('month', initialAnchor, weekStartsOn).to}`,
+    `${rangeFor('week', initialAnchor, weekStartsOn).from}:${rangeFor('week', initialAnchor, weekStartsOn).to}`,
   );
   const inFlight = useRef(false);
 

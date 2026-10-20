@@ -1,11 +1,21 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronRight, Plus, RefreshCw, Wand2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarPlus,
+  CheckCircle2,
+  ChevronRight,
+  ListChecks,
+  Plus,
+  RefreshCw,
+  Timer,
+  Wand2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/common/page-header';
-import { ErrorState, LoadingBlock, SyncBadge } from '@/components/common/states';
+import { ErrorState, LoadingBlock } from '@/components/common/states';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/tasks/confirm-dialog';
 import { DeleteTaskDialog } from '@/components/tasks/delete-task-dialog';
@@ -13,6 +23,7 @@ import { RescheduleDialog } from '@/components/tasks/reschedule-dialog';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { AgendaPanel } from '@/components/calendar/agenda-panel';
 import { EventDialog } from '@/components/calendar/event-dialog';
+import { MobileAgenda } from '@/components/calendar/mobile-agenda';
 import { MonthGrid } from '@/components/calendar/month-grid';
 import { ReplanDialog } from '@/components/calendar/replan-dialog';
 import { TaskActionsDialog } from '@/components/calendar/task-actions-dialog';
@@ -30,8 +41,11 @@ import {
   EMPTY_FILTER,
   applyFilter,
   groupItemsByDay,
+  isFilterActive,
   masterForItem,
   slotDateForItem,
+  summariseCalendar,
+  visibleCalendarItems,
   type CalendarItem,
   type ItemFilter,
 } from '@/lib/domain/calendar';
@@ -39,6 +53,7 @@ import { daysInRange, rangeLabel, shiftAnchor } from '@/lib/domain/calendar-rang
 import { intervalsForSessions } from '@/lib/domain/intervals';
 import { overlaps } from '@/lib/domain/scheduling';
 import {
+  formatDuration,
   instantToLocalMinutes,
   minutesToTimeString,
   type DayKey,
@@ -88,6 +103,10 @@ export function CalendarClient() {
     day: api.today,
     startMinutes: null,
   });
+  const [creatingTask, setCreatingTask] = useState<{
+    day: DayKey;
+    startMinutes: number | null;
+  } | null>(null);
   const [openItem, setOpenItem] = useState<CalendarItem | null>(null);
   const [editingTask, setEditingTask] = useState<ScheduledTask | null>(null);
   const [movingTask, setMovingTask] = useState<ScheduledTask | null>(null);
@@ -97,11 +116,21 @@ export function CalendarClient() {
 
   const { facts, view, anchor, range, clock, today, error, loading, sync, mutate } = api;
 
-  const filtered = useMemo(() => applyFilter(facts.items, filter), [facts.items, filter]);
+  // Removed tasks stay in the database but never reach a calendar view.
+  const visible = useMemo(() => visibleCalendarItems(facts.items), [facts.items]);
+  const filtered = useMemo(() => applyFilter(visible, filter), [visible, filter]);
   const itemsByDay = useMemo(() => groupItemsByDay(filtered), [filtered]);
+  // Conflicts are a fact about the day, not about the current filter, so the
+  // overlap check reads the unfiltered window.
+  const visibleByDay = useMemo(() => groupItemsByDay(visible), [visible]);
   const days = useMemo(() => daysInRange(range), [range]);
+  const timelineDays = useMemo(
+    () => (view === 'day' ? [anchor] : days),
+    [view, anchor, days],
+  );
   const label = rangeLabel(view, anchor, range);
   const showsToday = days.includes(today);
+  const filtersActive = isFilterActive(filter);
 
   /** Minutes actually tracked against each task item, from stored timestamps. */
   const trackedByItem = useMemo(() => {
@@ -114,6 +143,11 @@ export function CalendarClient() {
     return map;
   }, [facts.sessions, facts.pauses, clock]);
 
+  const summary = useMemo(
+    () => summariseCalendar(filtered, trackedByItem),
+    [filtered, trackedByItem],
+  );
+
   const taskById = useMemo(() => {
     const map = new Map<string, ScheduledTask>();
     for (const task of facts.tasks) map.set(task.id, task);
@@ -124,7 +158,7 @@ export function CalendarClient() {
     item && item.kind === 'task' ? (taskById.get(item.sourceId) ?? null) : null;
 
   /** How many items the window holds, so "nothing here" can say so honestly. */
-  const hiddenByFilter = facts.items.length - filtered.length;
+  const hiddenByFilter = visible.length - filtered.length;
 
   function openItemDialog(item: CalendarItem) {
     if (item.kind === 'event') {
@@ -134,7 +168,17 @@ export function CalendarClient() {
     setOpenItem(item);
   }
 
-  function quickAdd(day: DayKey, startMinutes: number | null = null) {
+  /**
+   * The primary creation path: an empty slot, the header button and the month
+   * cells all land in the task composer, already filled with the day and time
+   * the user pointed at.
+   */
+  function addTask(day: DayKey, startMinutes: number | null = null) {
+    setCreatingTask({ day, startMinutes });
+  }
+
+  /** Events remain creatable, but they no longer take over the empty-slot click. */
+  function addEvent(day: DayKey, startMinutes: number | null = null) {
     setDraft({ open: true, item: null, day, startMinutes });
   }
 
@@ -145,7 +189,7 @@ export function CalendarClient() {
     endMinutes: number,
     ignoreId: string,
   ): CalendarItem[] {
-    return (itemsByDay.get(day) ?? []).filter((other) => {
+    return (visibleByDay.get(day) ?? []).filter((other) => {
       if (other.id === ignoreId || other.isAllDay || other.status === 'cancelled') return false;
       return overlaps(
         {
@@ -248,33 +292,49 @@ export function CalendarClient() {
     onSelectItem: openItemDialog,
   };
 
-  const busyEmpty = !loading && filtered.length === 0;
-
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow={showsToday ? 'Everything planned' : label}
-        title="Calendar"
-        description="Month, week and day views of the same records that Today and Schedule write to."
+        eyebrow="Calendar"
+        title="Your Calendar"
+        description={
+          <span className="flex flex-col gap-1">
+            <span aria-live="polite" className="text-base font-medium text-foreground">
+              {label}
+            </span>
+            <span>
+              Click an empty time to add a task, or open one to start, complete, move, or edit it.
+            </span>
+          </span>
+        }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setReplanOpen(true)}>
               <Wand2 className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Replan my day</span>
-              <span className="sr-only sm:hidden">Replan my day</span>
+              Replan my day
             </Button>
-            <Button size="sm" onClick={() => quickAdd(anchor)}>
+            <Button variant="outline" size="sm" onClick={() => addEvent(anchor)}>
+              <CalendarPlus className="size-4" aria-hidden="true" />
+              New event
+            </Button>
+            <Button size="sm" onClick={() => addTask(anchor)}>
               <Plus className="size-4" aria-hidden="true" />
-              Add
+              Add task
             </Button>
           </div>
         }
       />
 
+      <CalendarOverview
+        planned={summary.plannedTasks}
+        completed={summary.completedTasks}
+        trackedMinutes={summary.trackedMinutes}
+        filtered={filtersActive}
+      />
+
       <CalendarToolbar
         view={view}
         onViewChange={api.setView}
-        label={label}
         onPrev={() => api.setAnchor(shiftAnchor(view, anchor, -1))}
         onNext={() => api.setAnchor(shiftAnchor(view, anchor, 1))}
         onToday={api.goToToday}
@@ -284,7 +344,6 @@ export function CalendarClient() {
         goals={facts.goals}
         sync={sync}
         loading={loading}
-        onQuickAdd={() => quickAdd(anchor)}
       />
 
       {facts.warning ? (
@@ -303,11 +362,20 @@ export function CalendarClient() {
           message={error}
           onRetry={api.refresh}
         />
-      ) : loading && facts.items.length === 0 ? (
+      ) : loading && visible.length === 0 ? (
         <LoadingBlock rows={5} label="Loading your calendar" />
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0 space-y-3">
+            {!loading && visible.length === 0 ? (
+              <EmptyCalendar onAdd={() => addTask(anchor)} />
+            ) : !loading && filtered.length === 0 ? (
+              <FilteredEmpty
+                hidden={hiddenByFilter}
+                onClear={() => setFilter({ ...EMPTY_FILTER })}
+              />
+            ) : null}
+
             {view === 'month' ? (
               <MonthGrid
                 {...gridProps}
@@ -315,32 +383,51 @@ export function CalendarClient() {
                 anchor={anchor}
                 weekStartsOn={viewer.preferences.week_starts_on}
                 onSelectDay={(day) => api.setAnchor(day)}
-                onQuickAdd={(day) => quickAdd(day)}
+                onQuickAdd={(day) => addTask(day)}
                 onMoveItem={(itemId, day) => {
                   const item = facts.items.find((entry) => entry.id === itemId);
                   if (item) requestMove(item, day, null);
                 }}
               />
             ) : (
-              <TimeGrid
-                {...gridProps}
-                now={clock}
-                days={view === 'day' ? [anchor] : days}
-                onSelectDay={(day) => {
-                  api.setView('day');
-                  api.setAnchor(day);
-                }}
-                onQuickAdd={(day, minutes) => quickAdd(day, minutes)}
-                onMoveItem={(itemId, day, minutes) => {
-                  const item = facts.items.find((entry) => entry.id === itemId);
-                  if (item) requestMove(item, day, minutes);
-                }}
-              />
+              <>
+                <div className="hidden md:block">
+                  <TimeGrid
+                    {...gridProps}
+                    now={clock}
+                    days={timelineDays}
+                    onSelectDay={(day) => {
+                      api.setView('day');
+                      api.setAnchor(day);
+                    }}
+                    onQuickAdd={(day, minutes) => addTask(day, minutes)}
+                    onMoveItem={(itemId, day, minutes) => {
+                      const item = facts.items.find((entry) => entry.id === itemId);
+                      if (item) requestMove(item, day, minutes);
+                    }}
+                  />
+                </div>
+
+                {/* A phone gets a day agenda rather than a seven-column grid
+                    squeezed into 360 pixels. */}
+                <div className="md:hidden">
+                  <MobileAgenda
+                    days={timelineDays}
+                    selectedDay={anchor}
+                    itemsByDay={itemsByDay}
+                    trackedByItem={trackedByItem}
+                    today={today}
+                    onSelectDay={api.setAnchor}
+                    onSelectItem={openItemDialog}
+                    onQuickAdd={(day, minutes) => addTask(day, minutes)}
+                  />
+                </div>
+              </>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Legend />
-              {hiddenByFilter > 0 ? (
+              {hiddenByFilter > 0 && filtered.length > 0 ? (
                 <p className="text-2xs text-muted-foreground">
                   {hiddenByFilter} {hiddenByFilter === 1 ? 'item is' : 'items are'} hidden by your filters.
                 </p>
@@ -350,13 +437,6 @@ export function CalendarClient() {
                 Reload
               </Button>
             </div>
-
-            {busyEmpty ? (
-              <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm leading-relaxed text-muted-foreground">
-                Nothing falls in this {view}. That is not a problem to fix — use the arrows to look elsewhere, or
-                add something and it will appear here.
-              </p>
-            ) : null}
           </div>
 
           <aside aria-label="Agenda" className="min-w-0">
@@ -414,6 +494,18 @@ export function CalendarClient() {
         }}
         task={editingTask}
         defaultDate={editingTask?.scheduled_date ?? anchor}
+        goals={facts.goals}
+        mutate={mutate}
+      />
+
+      <TaskDialog
+        open={creatingTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setCreatingTask(null);
+        }}
+        task={null}
+        defaultDate={creatingTask?.day ?? anchor}
+        defaultStartMinutes={creatingTask?.startMinutes ?? undefined}
         goals={facts.goals}
         mutate={mutate}
       />
@@ -477,6 +569,95 @@ export function CalendarClient() {
 }
 
 /**
+ * The small strip under the title.
+ *
+ * Every number comes from the rows already on screen — there is no second
+ * counter to drift. `summariseCalendar` ignores events and removed tasks, so
+ * "planned" means work the user still expects of themselves.
+ */
+function CalendarOverview({
+  planned,
+  completed,
+  trackedMinutes,
+  filtered,
+}: {
+  planned: number;
+  completed: number;
+  trackedMinutes: number;
+  filtered: boolean;
+}) {
+  const stats = [
+    { label: 'Tasks planned', value: String(planned), Icon: ListChecks },
+    { label: 'Completed', value: String(completed), Icon: CheckCircle2 },
+    { label: 'Time tracked', value: formatDuration(trackedMinutes), Icon: Timer },
+  ];
+
+  return (
+    <section
+      aria-labelledby="calendar-overview"
+      className="rounded-lg border border-border bg-surface px-4 py-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2
+          id="calendar-overview"
+          className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground"
+        >
+          At a glance
+        </h2>
+        {filtered ? <span className="text-2xs text-muted-foreground">Filtered view</span> : null}
+      </div>
+      <dl className="mt-2 grid grid-cols-3 gap-2">
+        {stats.map(({ label, value, Icon }) => (
+          <div key={label} className="rounded-md border border-border bg-muted/20 px-3 py-2.5">
+            <dt className="flex items-center gap-1.5 text-2xs leading-tight text-muted-foreground">
+              <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+              {label}
+            </dt>
+            <dd className="mt-1 text-xl font-semibold tabular-nums text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/** The first-run state: honest, short, and with the one action that matters. */
+function EmptyCalendar({ onAdd }: { onAdd: () => void }) {
+  return (
+    <section className="rounded-lg border border-dashed border-border bg-surface px-4 py-6 sm:px-6">
+      <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+        Nothing planned in this view yet.
+      </h2>
+      <p className="mt-1 max-w-prose text-sm leading-relaxed text-muted-foreground">
+        Start with one task. You can make it repeat later, or move it to another day whenever you
+        need to.
+      </p>
+      <Button size="sm" className="mt-3" onClick={onAdd}>
+        <Plus className="size-4" aria-hidden="true" />
+        Add your first task
+      </Button>
+    </section>
+  );
+}
+
+/** Items exist, but the current filters hide all of them. */
+function FilteredEmpty({ hidden, onClear }: { hidden: number; onClear: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5"
+    >
+      <p className="text-sm text-muted-foreground">
+        {hidden} {hidden === 1 ? 'item is' : 'items are'} hidden by your filters.
+      </p>
+      <Button variant="outline" size="sm" onClick={onClear}>
+        Clear filters
+      </Button>
+    </div>
+  );
+}
+
+/**
  * The legend.
  *
  * The grids encode status in three ways at once — glyph, opacity and a written
@@ -484,18 +665,22 @@ export function CalendarClient() {
  * than the only key.
  */
 function Legend() {
-  const entries: Array<{ label: string; className: string }> = [
+  const entries: Array<{ label: string; className: string; bar?: boolean }> = [
     { label: 'Planned', className: 'bg-muted' },
     { label: 'Done', className: 'bg-success/60' },
     { label: 'Set aside', className: 'bg-border' },
     { label: 'Not done', className: 'bg-muted-foreground/40' },
+    { label: 'Tracked time', className: 'bg-accent', bar: true },
   ];
 
   return (
     <ul className="flex flex-wrap items-center gap-3">
       {entries.map((entry) => (
         <li key={entry.label} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
-          <span className={cn('size-2 rounded-sm', entry.className)} aria-hidden="true" />
+          <span
+            className={cn(entry.bar ? 'h-1 w-4 rounded-full' : 'size-2 rounded-sm', entry.className)}
+            aria-hidden="true"
+          />
           {entry.label}
         </li>
       ))}

@@ -1,6 +1,15 @@
 'use client';
 
-import { CalendarClock, Check, CircleSlash, Pencil, RotateCcw, Trash2, Undo2 } from 'lucide-react';
+import { useState } from 'react';
+import {
+  CalendarClock,
+  Check,
+  CircleSlash,
+  Pencil,
+  Play,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatusChip } from '@/components/common/status-chip';
-import { setTaskStatus, type ScheduledTask } from '@/lib/data/tasks';
+import { setTaskStatus, startSession, type ScheduledTask } from '@/lib/data/tasks';
 import type { CalendarItem } from '@/lib/domain/calendar';
 import { formatDuration, formatInstant, humanDay, type DayKey } from '@/lib/domain/time';
 import { CATEGORY_META } from '@/lib/domain/vocabulary';
@@ -54,18 +63,55 @@ export function TaskActionsDialog({
 }: TaskActionsDialogProps) {
   const supabase = useSupabase();
   const timeZone = useTimeZone();
+  const [busy, setBusy] = useState<'start' | 'done' | 'reopen' | 'skip' | null>(null);
   if (!item || !task) return null;
 
-  const settled = task.status === 'completed' || task.status === 'skipped' || task.status === 'cancelled';
+  const canStart = task.status === 'scheduled';
+  const canReopen = task.status !== 'scheduled' && task.status !== 'in_progress';
+  const canSkip = task.status !== 'skipped';
 
-  async function setStatus(status: Extract<TaskStatus, 'completed' | 'skipped' | 'scheduled'>) {
+  async function setStatus(
+    status: Extract<TaskStatus, 'completed' | 'skipped' | 'scheduled'>,
+    action: 'done' | 'reopen' | 'skip',
+  ) {
     if (!task) return;
-    const result = await mutate(() => setTaskStatus(supabase, task.id, status), { quiet: true });
+    setBusy(action);
+    const result = await mutate(() => setTaskStatus(supabase, task.id, status), {
+      success:
+        status === 'completed'
+          ? 'Marked done. That is part of your record now.'
+          : status === 'skipped'
+            ? 'Set aside. It stays in your history.'
+            : 'Back in the plan.',
+    });
+    setBusy(null);
+    if (result.ok) onOpenChange(false);
+  }
+
+  /**
+   * Starting from the calendar uses the same timer as Today, and does not
+   * silently displace an open one: the database refuses, and the explanation
+   * is shown rather than a second timer quietly replacing the first.
+   */
+  async function start() {
+    if (!task) return;
+    setBusy('start');
+    const result = await mutate(
+      () => startSession(supabase, { taskId: task.id, kind: 'focus', replaceOpen: false }),
+      { success: 'Timer started. You can follow it on Today.' },
+    );
+    setBusy(null);
     if (result.ok) onOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && busy !== null) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="pr-6">{item.title}</DialogTitle>
@@ -89,51 +135,70 @@ export function TaskActionsDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-2">
-          {settled ? (
-            <Button variant="outline" onClick={() => void setStatus('scheduled')}>
-              <RotateCcw className="size-4" aria-hidden="true" />
-              Reopen it
+          {canStart ? (
+            <Button loading={busy === 'start'} disabled={busy !== null} onClick={() => void start()}>
+              <Play className="size-4" aria-hidden="true" />
+              Start working
             </Button>
-          ) : (
-            <Button onClick={() => void setStatus('completed')}>
+          ) : null}
+
+          {!canReopen ? (
+            <Button
+              variant={canStart ? 'outline' : 'default'}
+              loading={busy === 'done'}
+              disabled={busy !== null}
+              onClick={() => void setStatus('completed', 'done')}
+            >
               <Check className="size-4" aria-hidden="true" />
               Mark it done
             </Button>
-          )}
+          ) : null}
 
-          {task.status === 'skipped' ? (
-            <Button variant="outline" onClick={() => void setStatus('scheduled')}>
-              <Undo2 className="size-4" aria-hidden="true" />
-              Bring it back
+          {canReopen ? (
+            <Button
+              variant="outline"
+              loading={busy === 'reopen'}
+              disabled={busy !== null}
+              onClick={() => void setStatus('scheduled', 'reopen')}
+            >
+              <RotateCcw className="size-4" aria-hidden="true" />
+              {task.status === 'skipped' ? 'Bring it back' : 'Reopen it'}
             </Button>
-          ) : (
-            <Button variant="outline" onClick={() => void setStatus('skipped')}>
+          ) : null}
+
+          {canSkip ? (
+            <Button
+              variant="outline"
+              loading={busy === 'skip'}
+              disabled={busy !== null}
+              onClick={() => void setStatus('skipped', 'skip')}
+            >
               <CircleSlash className="size-4" aria-hidden="true" />
               Set it aside
             </Button>
-          )}
+          ) : null}
 
-          <Button variant="outline" onClick={() => onMove(item)}>
+          <Button variant="outline" disabled={busy !== null} onClick={() => onMove(item)}>
             <CalendarClock className="size-4" aria-hidden="true" />
             Move it
           </Button>
-          <Button variant="outline" onClick={() => onEdit(task)}>
+          <Button variant="outline" disabled={busy !== null} onClick={() => onEdit(task)}>
             <Pencil className="size-4" aria-hidden="true" />
             Edit it
           </Button>
         </div>
 
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Setting a task aside is recorded, not judged. Moving it forward is a complete answer, and neither
-          removes anything you have already done.
+          Starting records real time against this task. Setting it aside is recorded, not judged,
+          and neither removes anything you have already done.
         </p>
 
         <DialogFooter className="sm:justify-between">
-          <Button variant="ghost" onClick={() => onRemove(task)}>
+          <Button variant="ghost" disabled={busy !== null} onClick={() => onRemove(task)}>
             <Trash2 className="size-4" aria-hidden="true" />
             Remove
           </Button>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" disabled={busy !== null} onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </DialogFooter>

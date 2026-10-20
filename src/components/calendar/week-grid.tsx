@@ -14,6 +14,7 @@ import {
   MINUTES_PER_DAY,
   dayKeyOf,
   instantToLocalMinutes,
+  longDay,
   minutesToClock,
   parseDayKey,
   type DayKey,
@@ -30,21 +31,27 @@ import { cn } from '@/lib/utils';
  *
  * Two deliberate choices:
  *
- *   · **Empty space is a control.** Clicking a blank stretch of a column opens
- *     the event dialog already filled with that time — which is how most events
- *     actually get created — and dragging a block onto a column moves it to the
- *     snapped time under the pointer.
+ *   · **Empty space is a control.** Clicking a blank stretch of a column asks
+ *     the parent to add a task at that time — which is how most tasks actually
+ *     get created — and dragging a block onto a column moves it to the snapped
+ *     time under the pointer.
  *   · **The drop target shows itself.** While a drag is over a column a hairline
  *     marks the exact slot the item would land in, so a move is never a guess
  *     followed by a surprise.
  */
 
-const HOUR_HEIGHT = 44;
+const HOUR_HEIGHT = 56;
 const COLUMN_HEIGHT = HOUR_HEIGHT * 24;
 const GUTTER_WIDTH = '3.5rem';
 /** Moves and quick-adds land on quarter-hours, which is as fine as anyone plans. */
 const SNAP_MINUTES = 15;
 const DEFAULT_ANCHOR_MINUTES = 8 * 60;
+/**
+ * The smallest readable footprint for a block, in minutes. A five-minute task
+ * is still drawn tall enough to carry its title, and the lane packer uses the
+ * same floor so a following task moves beside it instead of on top of it.
+ */
+const MIN_BLOCK_MINUTES = 20;
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -110,6 +117,7 @@ export function TimeGrid({
         placeOnTimeline(
           timed.map((item) => ({ key: item.id, start: item.start, end: item.end })),
           timeZone,
+          { minDurationMinutes: MIN_BLOCK_MINUTES },
         ),
       );
     }
@@ -131,7 +139,7 @@ export function TimeGrid({
                 type="button"
                 onClick={() => onSelectDay(day)}
                 aria-current={isToday ? 'date' : undefined}
-                aria-label={`${parseDayKey(day).toDateString()}, ${count} ${count === 1 ? 'item' : 'items'}`}
+                aria-label={`${longDay(day)}, ${count} ${count === 1 ? 'item' : 'items'}`}
                 className={cn(
                   'flex flex-col items-center gap-0.5 border-l border-border px-2 py-2 transition-colors duration-150',
                   'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
@@ -182,15 +190,24 @@ export function TimeGrid({
         </div>
       </div>
 
-      {/* The scrolling time axis */}
-      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight }}>
+      {/* The scrolling time axis. The region is focusable so it can be scrolled
+          from the keyboard, and the visible scrollbar is left alone: it is the
+          clearest possible sign that the day continues below the fold. */}
+      <div
+        ref={scrollRef}
+        role="region"
+        aria-label="Timeline"
+        tabIndex={0}
+        className="overflow-y-auto overscroll-contain [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        style={{ maxHeight }}
+      >
         <div className="flex">
           <div className="shrink-0" style={{ width: GUTTER_WIDTH }} aria-hidden="true">
             <div className="relative" style={{ height: COLUMN_HEIGHT }}>
               {Array.from({ length: 24 }, (_, hour) => (
                 <div
                   key={hour}
-                  className="absolute right-2 -translate-y-1/2 text-2xs tabular-nums text-muted-foreground"
+                  className="absolute right-2 -translate-y-1/2 text-[11px] leading-none tabular-nums text-muted-foreground"
                   style={{ top: hour * HOUR_HEIGHT }}
                 >
                   {hour === 0 ? '' : minutesToClock(hour * 60)}
@@ -245,12 +262,23 @@ export function TimeGrid({
                       time of day the user pointed at. */}
                   <button
                     type="button"
-                    onClick={(event) => onQuickAdd(day, minutesFromPointer(event, event.currentTarget))}
+                    onClick={(event) =>
+                      onQuickAdd(
+                        day,
+                        // A keyboard activation reports no pointer position;
+                        // opening at the start of the working day is a far more
+                        // useful default than an arbitrary point calculated
+                        // from a zero `clientY`.
+                        event.detail === 0
+                          ? DEFAULT_ANCHOR_MINUTES
+                          : minutesFromPointer(event, event.currentTarget),
+                      )
+                    }
                     className={cn(
-                      'absolute inset-0 z-0 w-full cursor-default text-left transition-colors duration-150',
-                      'hover:bg-accent/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                      'absolute inset-0 z-0 w-full cursor-pointer text-left transition-colors duration-150',
+                      'hover:bg-accent/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                     )}
-                    aria-label={`Add something on ${day} at a chosen time`}
+                    aria-label={`Add a task on ${longDay(day)} at the time you click`}
                   />
 
                   {dropping !== null ? (
@@ -308,13 +336,13 @@ export function TimeGrid({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-        <p className="text-2xs text-muted-foreground">
-          Click a blank stretch to add something at that time, or drag a block to move it. Either way the same change
-          can be made from the item&rsquo;s own dialog, with the keyboard.
+        <p className="text-2xs leading-relaxed text-muted-foreground">
+          Click a blank stretch to add a task at that time, or drag a block to move it. Every change is also
+          available from the task&rsquo;s own dialog, with the keyboard.
         </p>
         <span className="hidden shrink-0 items-center gap-1 text-2xs text-muted-foreground sm:flex">
           <CalendarPlus className="size-3" aria-hidden="true" />
-          {SNAP_MINUTES}-minute steps
+          Scroll to see the whole day
         </span>
       </div>
     </div>

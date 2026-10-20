@@ -1,0 +1,71 @@
+
+> rebirth@0.1.0 typecheck
+> tsc --noEmit
+
+src/app/(app)/calendar/calendar-client.tsx(39,32): error TS2305: Module '"@/lib/domain/intervals"' has no exported member 'overlaps'.
+src/app/(app)/calendar/calendar-client.tsx(108,71): error TS2339: Property 'pauses' does not exist on type 'CalendarFacts'.
+src/app/(app)/calendar/calendar-client.tsx(114,29): error TS2339: Property 'pauses' does not exist on type 'CalendarFacts'.
+src/app/(app)/calendar/calendar-context.tsx(154,5): error TS2345: Argument of type '<T>(action: () => Promise<Result<T>>, options?: { success?: string | undefined; quiet?: boolean | undefined; } | undefined) => Promise<Failure | Success<unknown>>' is not assignable to parameter of type 'Mutator'.
+  Type 'Promise<Failure | Success<unknown>>' is not assignable to type 'Promise<Result<T>>'.
+    Type 'Failure | Success<unknown>' is not assignable to type 'Result<T>'.
+      Type 'Success<unknown>' is not assignable to type 'Result<T>'.
+        Type 'Success<unknown>' is not assignable to type 'Success<T>'.
+          Type 'unknown' is not assignable to type 'T'.
+            'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/app/(app)/schedule/schedule-context.tsx(106,5): error TS2345: Argument of type '<T>(action: () => Promise<Result<T>>, options?: { success?: string | undefined; quiet?: boolean | undefined; } | undefined) => Promise<Failure | Success<unknown>>' is not assignable to parameter of type 'Mutator'.
+  Type 'Promise<Failure | Success<unknown>>' is not assignable to type 'Promise<Result<T>>'.
+    Type 'Failure | Success<unknown>' is not assignable to type 'Result<T>'.
+      Type 'Success<unknown>' is not assignable to type 'Result<T>'.
+        Type 'Success<unknown>' is not assignable to type 'Success<T>'.
+          Type 'unknown' is not assignable to type 'T'.
+            'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/app/(app)/today/today-context.tsx(141,5): error TS2345: Argument of type '<T>(action: () => Promise<Result<T>>, options?: MutateOptions | undefined) => Promise<Failure | Success<unknown>>' is not assignable to parameter of type '<T>(action: () => Promise<Result<T>>, options?: MutateOptions | undefined) => Promise<Result<T>>'.
+  Type 'Promise<Failure | Success<unknown>>' is not assignable to type 'Promise<Result<T>>'.
+    Type 'Failure | Success<unknown>' is not assignable to type 'Result<T>'.
+      Type 'Success<unknown>' is not assignable to type 'Result<T>'.
+        Type 'Success<unknown>' is not assignable to type 'Success<T>'.
+          Type 'unknown' is not assignable to type 'T'.
+            'T' could be instantiated with an arbitrary type which could be unrelated to 'unknown'.
+src/components/calendar/agenda-panel.tsx(50,17): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(50,45): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(50,63): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(63,24): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(64,61): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(66,20): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(67,35): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(67,73): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(68,40): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(69,20): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(70,46): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/agenda-panel.tsx(71,25): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/item-chip.tsx(116,38): error TS2345: Argument of type 'number | null | undefined' is not assignable to parameter of type 'number | null'.
+  Type 'undefined' is not assignable to type 'number | null'.
+src/components/calendar/month-grid.tsx(79,25): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/month-grid.tsx(79,53): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/month-grid.tsx(79,71): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/month-grid.tsx(131,60): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/month-grid.tsx(135,74): error TS18046: 'period' is of type 'unknown'.
+src/components/calendar/toolbar.tsx(254,28): error TS2532: Object is possibly 'undefined'.
+src/components/tasks/micro-steps-dialog.tsx(232,16): error TS2741: Property 'label' is missing in type '{ value: number; "aria-label": string; }' but required in type 'ProgressProps'.
+src/components/today/timer-panel.tsx(380,10): error TS2741: Property 'label' is missing in type '{ value: number; "aria-label": string; }' but required in type 'ProgressProps'.
+src/lib/data/calendar.ts(35,38): error TS2344: Type '"important_events"' does not satisfy the constraint '"profiles" | "user_preferences" | "goals" | "goal_milestones" | "rewards" | "reward_claims" | "task_templates" | "scheduled_tasks" | "task_sessions" | "task_session_pauses" | ... 8 more ... | "calendar_events"'.
+src/lib/data/calendar.ts(557,25): error TS2339: Property 'kind' does not exist on type 'unknown'.
+src/lib/data/today.ts(247,14): error TS18046: 'period' is of type 'unknown'.
+src/lib/data/today.ts(248,17): error TS18046: 'period' is of type 'unknown'.
+src/lib/data/today.ts(249,15): error TS18046: 'period' is of type 'unknown'.
+src/lib/data/today.ts(250,25): error TS18046: 'period' is of type 'unknown'.
+src/lib/data/today.ts(251,21): error TS18046: 'period' is of type 'unknown'.
+src/lib/domain/messages.ts(131,49): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(134,45): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(137,45): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(140,49): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(142,43): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(148,47): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(157,45): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(161,47): error TS2554: Expected 3 arguments, but got 2.
+src/lib/domain/messages.ts(165,47): error TS2554: Expected 3 arguments, but got 2.
+src/lib/validation/schemas.ts(194,41): error TS2339: Property 'extend' does not exist on type 'ZodEffects<ZodObject<{ title: ZodEffects<ZodEffects<ZodEffects<ZodString, string, string>, string, string>, string, string>; description: ZodUnion<...>; ... 9 more ...; notes: ZodUnion<...>; }, "strip", ZodTypeAny, { ...; }, { ...; }>, { ...; }, { ...; }>'.
+src/lib/validation/schemas.ts(205,12): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/lib/validation/schemas.ts(206,12): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/lib/validation/schemas.ts(210,12): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/lib/validation/schemas.ts(227,22): error TS2339: Property 'partial' does not exist on type 'ZodEffects<ZodObject<{ title: ZodEffects<ZodEffects<ZodEffects<ZodString, string, string>, string, string>, string, string>; description: ZodUnion<...>; ... 9 more ...; notes: ZodUnion<...>; }, "strip", ZodTypeAny, { ...; }, { ...; }>, { ...; }, { ...; }>'.

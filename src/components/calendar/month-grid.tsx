@@ -6,7 +6,7 @@ import { CalendarPlus, Flag, Plus } from 'lucide-react';
 import { ItemChip } from './item-chip';
 import type { CalendarItem } from '@/lib/domain/calendar';
 import type { ImportantPeriod } from '@/lib/data/calendar';
-import { dayOfWeek, formatDayKey, parseDayKey, type DayKey } from '@/lib/domain/time';
+import { dayOfWeek, formatDayKey, longDay, parseDayKey, type DayKey } from '@/lib/domain/time';
 import { cn } from '@/lib/utils';
 
 /**
@@ -118,7 +118,7 @@ export function MonthGrid({
                         ? 'text-foreground hover:bg-muted'
                         : 'text-muted-foreground hover:bg-muted',
                   )}
-                  aria-label={`Open ${day}`}
+                  aria-label={`Open ${longDay(day)}`}
                   aria-current={isToday ? 'date' : undefined}
                 >
                   {parseDayKey(day).getDate()}
@@ -144,7 +144,7 @@ export function MonthGrid({
                       'hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       'group-hover:opacity-100',
                     )}
-                    aria-label={`Add something on ${day}`}
+                    aria-label={`Add a task on ${longDay(day)}`}
                   >
                     <Plus className="size-3.5" aria-hidden="true" />
                   </button>
@@ -188,7 +188,7 @@ export function MonthGrid({
                   )}
                 >
                   <CalendarPlus className="size-3" aria-hidden="true" />
-                  Add
+                  Add task
                 </button>
               ) : null}
             </div>

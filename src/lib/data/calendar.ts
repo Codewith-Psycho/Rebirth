@@ -13,7 +13,7 @@ import {
   instantToLocalMinutes,
   minutesToTimeString,
 } from '@/lib/domain/time';
-import type { CalendarEventRow, EventStatus, Tables } from '@/lib/types/database';
+import type { EventStatus, Tables } from '@/lib/types/database';
 import type { EventValues } from '@/lib/validation/schemas';
 import { fromPostgrest, ok, type Result } from './result';
 import type { Db } from './types';

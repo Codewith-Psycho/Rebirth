@@ -2,7 +2,7 @@
 
 import { Cake, Flag, MapPin, Repeat2, Sparkles } from 'lucide-react';
 
-import type { CalendarItem } from '@/lib/domain/calendar';
+import { CALENDAR_STATUS_LABELS, type CalendarItem } from '@/lib/domain/calendar';
 import { formatDuration, formatInstant } from '@/lib/domain/time';
 import { CATEGORY_META, EVENT_KIND_LABELS } from '@/lib/domain/vocabulary';
 import { categorySurface } from '@/lib/ui-style';
@@ -108,6 +108,13 @@ export function ItemBlock({
   const timeZone = useTimeZone();
   const planned = item.minutes;
   const tracked = trackedMinutes ?? 0;
+  // A 15-minute block is roughly one line tall. Showing a second line in it
+  // would clip both, so short blocks keep the title and put the time and
+  // status in the accessible name, where they are never truncated.
+  const compact = !item.isAllDay && item.minutes < 45;
+  const showTrackedText = !compact && tracked > 0 && item.minutes >= 75;
+  const showLocation = item.location !== null && (item.isAllDay || item.minutes >= 90);
+  const status = CALENDAR_STATUS_LABELS[item.status];
 
   return (
     <button
@@ -115,11 +122,14 @@ export function ItemBlock({
       onClick={() => onClick?.(item)}
       aria-label={describeItem(item, trackedMinutes ?? null)}
       className={cn(
-        'flex h-full w-full flex-col gap-0.5 overflow-hidden rounded-md border px-2 py-1 text-left transition-colors duration-150',
+        'relative flex h-full w-full flex-col gap-0.5 overflow-hidden rounded-md border text-left transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         'hover:brightness-[0.97] dark:hover:brightness-110',
+        compact ? 'px-1.5 pt-0.5 pb-1' : 'px-2 py-1',
+        tracked > 0 && !compact && 'pb-2.5',
         item.status === 'completed' && 'opacity-70',
         (item.status === 'cancelled' || item.status === 'skipped') && 'opacity-45',
+        item.status === 'missed' && 'opacity-80',
         item.priority === 'main' && 'ring-1 ring-accent/50',
         className,
       )}
@@ -127,26 +137,46 @@ export function ItemBlock({
     >
       <span
         className={cn(
-          'truncate text-xs font-medium leading-tight',
+          'truncate font-medium leading-tight',
+          compact ? 'text-[11px]' : 'text-xs',
           item.status === 'completed' && 'line-through',
         )}
       >
         {item.title}
       </span>
-      <span className="truncate text-2xs tabular-nums opacity-80">
-        {item.isAllDay
-          ? (item.eventKind ? EVENT_KIND_LABELS[item.eventKind] : 'All day')
-          : `${timeRangeLabel(item, timeZone)} · ${formatDuration(planned)}`}
-      </span>
-      {tracked > 0 ? (
+
+      {!compact ? (
+        <span className="truncate text-2xs tabular-nums opacity-80">
+          {item.isAllDay
+            ? (item.eventKind ? EVENT_KIND_LABELS[item.eventKind] : 'All day')
+            : `${timeRangeLabel(item, timeZone)}${item.status === 'planned' ? '' : ` · ${status}`}`}
+        </span>
+      ) : null}
+
+      {showTrackedText ? (
         <span className="truncate text-2xs tabular-nums opacity-90">
           {formatDuration(tracked)} tracked
         </span>
       ) : null}
-      {item.location ? (
+
+      {showLocation && item.location ? (
         <span className="flex items-center gap-1 truncate text-2xs opacity-80">
           <MapPin className="size-2.5 shrink-0" aria-hidden="true" />
           {item.location}
+        </span>
+      ) : null}
+
+      {/* Tracked time is a mark on the block, not another line of text, so it
+          cannot push the title out of a short block or cover any label. */}
+      {tracked > 0 ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-1 bottom-1 h-0.5 overflow-hidden rounded-full bg-foreground/10"
+        >
+          <span
+            className="block h-full rounded-full bg-accent"
+            style={{ width: `${Math.min(100, (tracked / Math.max(1, planned)) * 100)}%` }}
+          />
         </span>
       ) : null}
     </button>
@@ -169,20 +199,7 @@ export function describeItem(item: CalendarItem, trackedMinutes: number | null):
 }
 
 function statusWord(item: CalendarItem): string {
-  switch (item.status) {
-    case 'completed':
-      return 'completed';
-    case 'missed':
-      return 'not done';
-    case 'skipped':
-      return 'set aside';
-    case 'cancelled':
-      return 'removed';
-    case 'in_progress':
-      return 'in progress';
-    default:
-      return 'planned';
-  }
+  return CALENDAR_STATUS_LABELS[item.status].toLowerCase();
 }
 
 /**

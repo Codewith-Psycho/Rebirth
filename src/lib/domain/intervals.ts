@@ -162,13 +162,22 @@ export interface PlaceableInput {
  * Lane assignment is greedy by start time, which keeps a block from moving
  * between renders as long as the data has not changed — important for a
  * component that re-renders every second while a timer runs.
+ *
+ * `minDurationMinutes` is a layout floor, not a claim about the record: a very
+ * short task still occupies a readable footprint, so its title is legible and
+ * the task that follows it is packed beside it rather than underneath it.
  */
 export function placeOnTimeline(
   items: PlaceableInput[],
   timeZone: string,
-  options: { minHeightPercent?: number } = {},
+  options: { minHeightPercent?: number; minDurationMinutes?: number } = {},
 ): Map<string, TimelineBlock> {
-  const { minHeightPercent = 0.7 } = options;
+  const { minHeightPercent = 0.7, minDurationMinutes = 8 } = options;
+  // A block has to be tall enough to read its title. Expanding the *layout*
+  // footprint (not the displayed times) means a 5-minute task cannot sit on top
+  // of the task that starts five minutes later: the next one moves to its own
+  // lane instead of being obscured.
+  const minimumMinutes = Math.max(8, Math.round(minDurationMinutes));
 
   const prepared = items
     .map((item) => {
@@ -176,7 +185,10 @@ export function placeOnTimeline(
       const rawEnd = startMinutes + (item.end.getTime() - item.start.getTime()) / 60_000;
       // An event running past midnight is drawn to the end of the column rather
       // than wrapping around, because a wrapped block reads as a second event.
-      const endMinutes = Math.min(MINUTES_PER_DAY, Math.max(startMinutes + 8, Math.round(rawEnd)));
+      const endMinutes = Math.min(
+        MINUTES_PER_DAY,
+        Math.max(startMinutes + minimumMinutes, Math.round(rawEnd)),
+      );
       return { ...item, startMinutes, endMinutes };
     })
     .sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);

@@ -32,6 +32,22 @@ export type CalendarItemStatus =
   | 'skipped'
   | 'cancelled';
 
+/**
+ * The words the calendar uses for each state.
+ *
+ * Kept here rather than in a component because the timeline, the mobile
+ * agenda and the screen-reader description must all say the same thing about
+ * the same record.
+ */
+export const CALENDAR_STATUS_LABELS: Record<CalendarItemStatus, string> = {
+  planned: 'Planned',
+  in_progress: 'In progress',
+  completed: 'Done',
+  missed: 'Not done',
+  skipped: 'Set aside',
+  cancelled: 'Removed',
+};
+
 export interface CalendarItem {
   /** Unique across both kinds, so React keys never collide. */
   id: string;
@@ -257,14 +273,53 @@ export function groupItemsByDay(items: CalendarItem[]): Map<DayKey, CalendarItem
   return map;
 }
 
+export interface CalendarSummary {
+  /** Tasks in the view, excluding ones the user removed. */
+  plannedTasks: number;
+  completedTasks: number;
+  /** Minutes genuinely tracked against those tasks, from stored sessions. */
+  trackedMinutes: number;
+}
+
+/**
+ * The small "at a glance" strip above the calendar.
+ *
+ * Only tasks are counted: an event is a commitment, not a unit of work. A
+ * cancelled task is excluded from both the plan and the tracked total because
+ * it is no longer part of what the view is asking of the user.
+ */
+export function summariseCalendar(
+  items: CalendarItem[],
+  trackedByItem: ReadonlyMap<string, number>,
+): CalendarSummary {
+  let plannedTasks = 0;
+  let completedTasks = 0;
+  let trackedMinutes = 0;
+
+  for (const item of items) {
+    if (item.kind !== 'task' || item.status === 'cancelled') continue;
+    plannedTasks += 1;
+    if (item.status === 'completed') completedTasks += 1;
+    trackedMinutes += trackedByItem.get(item.id) ?? 0;
+  }
+
+  return { plannedTasks, completedTasks, trackedMinutes };
+}
+
 export function itemsInRange(items: CalendarItem[], from: DayKey, to: DayKey): CalendarItem[] {
   return items.filter((item) => item.date >= from && item.date <= to);
 }
 
-/** Past-day items that were never completed, cancelled or skipped. */
+/**
+ * Past-day items that were never completed, cancelled or skipped.
+ *
+ * `missed` already implies the day is behind `asOf` (see `statusFor`), but the
+ * date is checked here too so the answer depends on the caller's frame rather
+ * than on whichever `asOf` happened to build the items.
+ */
 export function overdueItems(items: CalendarItem[], asOf: DayKey): CalendarItem[] {
   return items
-    .filter((item) => item.kind === 'task' && item.status === 'missed')
+    .filter((item) => item.kind === 'task' && item.status === 'missed' && item.date < asOf)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
@@ -325,6 +380,18 @@ export function isFilterActive(filter: ItemFilter): boolean {
     filter.goalIds.length > 0 ||
     filter.query.trim().length > 0
   );
+}
+
+/**
+ * What every calendar view is allowed to draw.
+ *
+ * Removing an item sets its status to `cancelled`; the row stays for history and
+ * to keep a generated slot occupied. That means "removed" is not a filter the
+ * user can toggle — it is absence. Applying this once, before filtering or
+ * grouping, keeps the timeline, the month grid and the mobile agenda in step.
+ */
+export function visibleCalendarItems(items: CalendarItem[]): CalendarItem[] {
+  return items.filter((item) => item.status !== 'cancelled');
 }
 
 export function applyFilter(items: CalendarItem[], filter: ItemFilter): CalendarItem[] {

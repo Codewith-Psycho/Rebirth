@@ -138,6 +138,9 @@ export function explainDatabaseError(message: string, hint?: string | null): str
   if (text.includes('task_not_found')) {
     return 'That task no longer exists. It may have been removed on another device.';
   }
+  if (text.includes('future_move_into_past')) {
+    return 'A whole-routine move can only go to today or a later day. Choose "Only this one" to move this occurrence earlier.';
+  }
   if (text.includes('row level security') || text.includes('permission denied')) {
     return 'You do not have access to that record.';
   }

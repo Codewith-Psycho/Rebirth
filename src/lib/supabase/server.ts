@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@/lib/types/database';
+import { type RecoveryProblem, readRecoveryProblem } from '@/lib/viewer-recovery';
 import { getSupabaseEnv } from './env';
 
 export type ServerSupabaseClient = SupabaseClient<Database>;
@@ -70,12 +71,23 @@ export interface ViewerContext {
   email: string | null;
   profile: Profile | null;
   preferences: Preferences | null;
+  /**
+   * Empty when the self-healing path did everything it was asked to. A missing
+   * row on its own is not a problem — only a step that failed is.
+   */
+  recovery: RecoveryProblem[];
 }
 
 /**
  * Everything the app shell needs about the viewer in one round trip.
  * `rpc_ensure_user` repairs accounts that predate the sign-up trigger, so this
  * is also the self-healing path for a missing profile or preferences row.
+ *
+ * That repair and both read-backs report their failures rather than discarding
+ * them: the difference between "the row is not there" and "the read was
+ * refused" is the difference between waiting and fixing something, and the
+ * shell cannot tell the user which it is if this function throws the evidence
+ * away.
  */
 export async function getViewerContext(): Promise<ViewerContext | null> {
   const client = await getServerClient();
@@ -86,17 +98,35 @@ export async function getViewerContext(): Promise<ViewerContext | null> {
   } = await client.auth.getUser();
   if (!user) return null;
 
-  await client.rpc('rpc_ensure_user');
+  // The repair runs first, so a missing row is created before it is read back.
+  const { error: ensureError } = await client.rpc('rpc_ensure_user');
 
-  const [{ data: profile }, { data: preferences }] = await Promise.all([
+  const [profileRead, preferencesRead] = await Promise.all([
     client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     client.from('user_preferences').select('*').eq('user_id', user.id).maybeSingle(),
   ]);
 
+  const recovery = [
+    readRecoveryProblem('ensure_user', ensureError),
+    readRecoveryProblem('load_profile', profileRead.error),
+    readRecoveryProblem('load_preferences', preferencesRead.error),
+  ].filter((problem): problem is RecoveryProblem => problem !== null);
+
+  if (recovery.length > 0) {
+    // The step and its short code, and nothing else: no user id, no raw
+    // Postgres text. A `maybeSingle()` that matched no row is not a failure —
+    // it reports `error: null` and never reaches this branch.
+    console.error(
+      '[viewer] account recovery did not finish',
+      recovery.map(({ step, code }) => ({ step, code })),
+    );
+  }
+
   return {
     userId: user.id,
     email: user.email ?? null,
-    profile: profile ?? null,
-    preferences: preferences ?? null,
+    profile: profileRead.data ?? null,
+    preferences: preferencesRead.data ?? null,
+    recovery,
   };
 }

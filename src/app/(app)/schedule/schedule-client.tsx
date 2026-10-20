@@ -73,7 +73,7 @@ export function ScheduleClient() {
   const api = useScheduleApi();
   const viewer = useViewer();
   const supabase = useSupabase();
-  const { facts, day, today, clock, error, loading, sync, mutate } = api;
+  const { facts, day, today, error, loading, sync, mutate } = api;
 
   const [draft, setDraft] = useState<TaskDraft>(CLOSED_DRAFT);
   const [routineDraft, setRoutineDraft] = useState<{ open: boolean; task: ScheduledTask | null }>({
